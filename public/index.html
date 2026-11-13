@@ -57,12 +57,27 @@
         <form class="quick" id="quick-form" autocomplete="off">
           <label class="quick__label" for="quick-amount">Calcular rápido</label>
           <div class="quick__row">
-            <input class="quick__input num" id="quick-amount" type="text" inputmode="decimal" enterkeyhint="go" placeholder="0,00" maxlength="18" data-cur="USD">
+            <div class="quick__field">
+              <input class="quick__input num" id="quick-amount" type="text" inputmode="decimal" enterkeyhint="go" placeholder="0,00" maxlength="18" data-cur="USD">
+              <button class="quick__clear" type="button" id="quick-clear" aria-label="Borrar monto" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+              </button>
+            </div>
             <button class="quick__go" type="submit" aria-label="Calcular">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
-          <div class="quick__chips" id="quick-chips" role="group" aria-label="Sumar montos rápidos"></div>
+          <div class="chips">
+            <button class="chips__hint" type="button" id="chips-hint" aria-controls="quick-chips">
+              <span class="chips__title" id="chips-title">Montos en $</span>
+              <span class="chips__dots" aria-hidden="true"><i data-page="0"></i><i data-page="1"></i></span>
+              <span class="chips__swipe" id="chips-swipe">Desliza → Bs</span>
+            </button>
+            <div class="chips__track" id="quick-chips" role="group" aria-label="Sumar montos rápidos. Deslice para cambiar entre dólares y bolívares">
+              <div class="chips__page" data-page="0"></div>
+              <div class="chips__page" data-page="1" data-cur="VES"></div>
+            </div>
+          </div>
           <div class="seg seg--cur" role="radiogroup" aria-label="Moneda del monto" id="quick-currency"></div>
           <div class="quick__preview" id="quick-preview" aria-live="polite"></div>
         </form>

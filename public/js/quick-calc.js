@@ -9,23 +9,53 @@ const form = document.querySelector('#quick-form');
 const input = document.querySelector('#quick-amount');
 const currencySeg = document.querySelector('#quick-currency');
 const preview = document.querySelector('#quick-preview');
-const chipsEl = document.querySelector('#quick-chips');
 
 let currency = ['USD', 'EUR', 'VES'].includes(load('quickCurrency')) ? load('quickCurrency') : 'USD';
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
-function pick(cur) {
+function pick(cur, { fromSwipe = false } = {}) {
   currency = cur;
+  if (cur !== 'VES') lastForeign = cur;
   save('quickCurrency', cur);
   markSegment(currencySeg, cur);
   input.dataset.cur = cur;
   renderPreview();
-  renderChips();
+  updateHint();
+  if (!fromSwipe) goToPage(pageFor(cur));
 }
 
-/* ---------- Quick amount chips: each tap adds to the current amount ---------- */
+/* ---------- Quick amount chips: two swipeable pages, each tap adds to the amount ---------- */
 
-const QUICK_AMOUNTS = [1, 5, 10, 15, 20, 25];
+// Page 0 adds in the foreign currency ($ or €), page 1 in bolivars. Swiping switches the currency.
+const PAGES = [
+  [1, 5, 10, 15, 20, 25, 30],
+  [500, 1000, 1500, 5000, 10000, 20000],
+];
 const SYMBOLS = { USD: '$', EUR: '€', VES: 'Bs' };
+
+const track = document.querySelector('#quick-chips');
+const pageEls = [...track.querySelectorAll('.chips__page')];
+const hint = document.querySelector('#chips-hint');
+const clearBtn = document.querySelector('#quick-clear');
+
+const pageFor = (cur) => (cur === 'VES' ? 1 : 0);
+const currentPage = () => (track.clientWidth ? Math.round(track.scrollLeft / track.clientWidth) : pageFor(currency));
+
+let lastForeign = currency === 'VES' ? 'USD' : currency;
+// Page the track shows, and the page a programmatic scroll is heading to (null while the user swipes).
+let visualPage = pageFor(currency);
+let targetPage = null;
+
+function goToPage(page, smooth = true) {
+  // Already there: no scroll event will fire, so don't wait for one.
+  if (Math.abs(track.scrollLeft - page * track.clientWidth) < 1) {
+    targetPage = null;
+    visualPage = page;
+    return;
+  }
+  targetPage = page;
+  track.scrollTo({ left: page * track.clientWidth, behavior: smooth && !reducedMotion.matches ? 'smooth' : 'auto' });
+}
 
 function addAmount(value) {
   const current = parseInput(normalizeTypedAmount(input.value));
@@ -39,29 +69,73 @@ function clearAmount() {
   renderPreview();
 }
 
-function renderChips() {
-  const chips = QUICK_AMOUNTS.map((value) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'quick__chip num';
-    btn.textContent = `+${value}`;
-    btn.dataset.amount = String(value);
-    btn.setAttribute('aria-label', `Sumar ${value} ${CURRENCY_META[currency].name.toLowerCase()}`);
-    return btn;
+function buildChips() {
+  PAGES.forEach((amounts, page) => {
+    pageEls[page].replaceChildren(...amounts.map((value) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'quick__chip num';
+      btn.textContent = `+${formatInput(String(value))}`;
+      btn.dataset.amount = String(value);
+      return btn;
+    }));
   });
-  const clear = document.createElement('button');
-  clear.type = 'button';
-  clear.className = 'quick__chip quick__chip--clear';
-  clear.dataset.action = 'clear';
-  clear.setAttribute('aria-label', 'Borrar monto');
-  clear.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 5H9l-6 7 6 7h12zM17.5 9.5l-5 5M12.5 9.5l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>';
-  chipsEl.replaceChildren(...chips, clear);
-  chipsEl.dataset.cur = currency;
-  chipsEl.dataset.symbol = SYMBOLS[currency];
+}
+
+function updateHint() {
+  const page = pageFor(currency);
+  const foreign = SYMBOLS[lastForeign];
+  pageEls[0].dataset.cur = lastForeign;
+  hint.dataset.page = String(page);
+  document.querySelector('#chips-title').textContent = `Montos en ${page ? 'Bs' : foreign}`;
+  document.querySelector('#chips-swipe').textContent = page ? `← ${foreign}` : 'Desliza → Bs';
+  hint.setAttribute('aria-label', page ? `Cambiar a montos en ${CURRENCY_META[lastForeign].name.toLowerCase()}` : 'Cambiar a montos en bolívares');
+  pageEls.forEach((el, i) => {
+    el.inert = i !== page;
+    el.querySelectorAll('.quick__chip').forEach((chip) => {
+      chip.setAttribute('aria-label', `Sumar ${chip.textContent.slice(1)} ${CURRENCY_META[i ? 'VES' : lastForeign].name.toLowerCase()}`);
+    });
+  });
+}
+
+function setupChips() {
+  buildChips();
+  updateHint();
+
+  track.addEventListener('click', (e) => {
+    const chip = e.target.closest('.quick__chip');
+    if (chip) addAmount(Number(chip.dataset.amount));
+  });
+  hint.addEventListener('click', () => goToPage(1 - pageFor(currency)));
+  clearBtn.addEventListener('click', clearAmount);
+
+  // A finished swipe picks the currency of the page it lands on.
+  let frame = 0;
+  track.addEventListener('scroll', () => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => {
+      if (!track.clientWidth) return;
+      const page = currentPage();
+      visualPage = page;
+      // Ignore our own scrolling until it lands; only user swipes change the currency.
+      if (targetPage !== null) {
+        if (page === targetPage) targetPage = null;
+        return;
+      }
+      if (page !== pageFor(currency)) pick(page ? 'VES' : lastForeign, { fromSwipe: true });
+    });
+  }, { passive: true });
+
+  // The rates view can start hidden (zero width): re-align once it has a size.
+  // Keep the visible page aligned when the width changes (rotation, scrollbars, view shown).
+  new ResizeObserver(() => {
+    if (track.clientWidth) goToPage(targetPage ?? visualPage, false);
+  }).observe(track);
 }
 
 /** Live equivalents in the other two currencies while typing. */
 function renderPreview() {
+  clearBtn.hidden = !input.value;
   const rates = getRates();
   const amount = parseInput(normalizeTypedAmount(input.value));
   const others = CURRENCIES.filter((c) => c !== currency);
@@ -85,13 +159,7 @@ export function initQuickCalc(goToCalculator) {
   buildSegment(currencySeg, pick);
   markSegment(currencySeg, currency);
   input.dataset.cur = currency;
-  renderChips();
-  chipsEl.addEventListener('click', (e) => {
-    const chip = e.target.closest('.quick__chip');
-    if (!chip) return;
-    if (chip.dataset.action === 'clear') clearAmount();
-    else addAmount(Number(chip.dataset.amount));
-  });
+  setupChips();
   input.addEventListener('input', renderPreview);
   onRatesChange(renderPreview);
   renderPreview();
