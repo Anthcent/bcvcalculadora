@@ -294,6 +294,29 @@ button { cursor: pointer; touch-action: manipulation; }
 .quick__go svg { width: 28px; height: 28px; }
 .quick__go:active { background: var(--accent-press); }
 
+.quick__chips {
+  --cur: var(--ves);
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+.quick__chip {
+  min-height: 44px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid color-mix(in oklch, var(--cur) 45%, var(--line));
+  background: color-mix(in oklch, var(--cur) 8%, var(--bg));
+  color: var(--cur);
+  font-weight: 800;
+  font-size: 1rem;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color 120ms var(--ease-out), transform 120ms var(--ease-out);
+}
+.quick__chip:active { transform: scale(0.94); background: color-mix(in oklch, var(--cur) 22%, var(--bg)); }
+.quick__chip--clear { display: grid; place-items: center; color: var(--ink-muted); border-color: var(--line); background: var(--surface-2); }
+.quick__chip--clear svg { width: 22px; height: 22px; }
+
 .quick__preview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .quick__eq {
   --cur: var(--ves);
@@ -929,6 +952,7 @@ button { cursor: pointer; touch-action: manipulation; }
 
 /* Narrow phones (320–370px wide). */
 @media (max-width: 370px) {
+  .quick__chips { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   :root { --gutter: 12px; }
   .brand__name { font-size: 1.2rem; }
   .brand__mark { width: 30px; height: 30px; }
