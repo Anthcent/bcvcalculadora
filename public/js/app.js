@@ -3,6 +3,7 @@ import { initCalculatorView } from './calculator-view.js';
 import { initPanelView, openPanel } from './panel-view.js';
 import { initQuickCalc } from './quick-calc.js';
 import { initReceipt } from './receipt.js';
+import { initStaleCheck } from './stale-check.js';
 import { load, save } from './storage.js';
 
 const VIEWS = ['rates', 'calc'];
@@ -35,4 +36,5 @@ initQuickCalc(() => showView('calc'));
 initReceipt();
 showView(activeView);
 if (wantsPanel) openPanel();
+initStaleCheck();
 

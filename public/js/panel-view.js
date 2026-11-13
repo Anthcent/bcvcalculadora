@@ -229,9 +229,9 @@ async function shareNative() {
 
 async function clearAll() {
   const ok = await confirmAction({
-    title: '¿Borrar todos los cálculos?',
-    text: 'Se eliminarán todos los cálculos y el total volverá a cero. Esta acción no se puede deshacer.',
-    confirmLabel: 'Borrar todo',
+    title: '¿Vaciar todos los cálculos?',
+    text: 'Se eliminarán todos los cálculos y el total volverá a cero.',
+    confirmLabel: 'Confirmar',
   });
   if (!ok) return;
   store.clearAll();
@@ -263,6 +263,7 @@ export function initPanelView() {
   $('#share-native').addEventListener('click', shareNative);
   $('#share-copy').addEventListener('click', copyText);
   $('#clear-all').addEventListener('click', clearAll);
+  $('#empty-all').addEventListener('click', clearAll);
 
   store.subscribe(() => {
     followActivePair();

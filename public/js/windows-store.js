@@ -48,15 +48,28 @@ function restore() {
     : [];
   if (windows.length === 0) windows.push(createWindow([]));
   const activeId = windows.some((w) => w.id === saved?.activeId) ? saved.activeId : windows[0].id;
-  return { windows, activeId };
+  // Older saves have no timestamp: count them as fresh rather than nagging right away.
+  const updatedAt = Number.isFinite(saved?.updatedAt) ? saved.updatedAt : Date.now();
+  return { windows, activeId, updatedAt };
 }
 
 let state = restore();
 
+// Every change stamps the time of last use, which drives the "old calculations" prompt.
 function commit(next) {
-  state = next;
+  state = { ...next, updatedAt: Date.now() };
   save(STORAGE_KEY, state);
   listeners.forEach((fn) => fn(state));
+}
+
+/** True when at least one calculation has an amount typed in. */
+export function hasAmounts() {
+  return state.windows.some((w) => w.input);
+}
+
+/** Marks the calculations as just used without changing them. */
+export function touch() {
+  commit(state);
 }
 
 export function getState() {

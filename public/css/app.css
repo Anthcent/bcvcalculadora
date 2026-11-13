@@ -385,6 +385,9 @@ button { cursor: pointer; touch-action: manipulation; }
   font-size: var(--text-sm);
 }
 .pill-btn:active { background: var(--surface-2); }
+.pill-btn--danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.pill-btn--danger:active { background: color-mix(in oklch, var(--danger) 80%, black); }
+.calc__actions { display: flex; gap: 8px; }
 
 .conv {
   display: flex;

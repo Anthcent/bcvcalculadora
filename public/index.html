@@ -77,7 +77,10 @@
         <div class="calc__head">
           <button class="calc__name" type="button" id="window-name" aria-label="Cambiar nombre del cálculo"></button>
           <input class="calc__name-input" id="window-name-input" type="text" maxlength="24" enterkeyhint="done" aria-label="Nombre del cálculo" hidden>
-          <button class="pill-btn" type="button" id="clear-amount">Limpiar</button>
+          <div class="calc__actions">
+            <button class="pill-btn" type="button" id="clear-amount">Limpiar</button>
+            <button class="pill-btn pill-btn--danger" type="button" id="empty-all">Vaciar</button>
+          </div>
         </div>
 
         <div class="conv" aria-live="polite">
@@ -196,7 +199,7 @@
       <h2 class="confirm__title" id="confirm-title"></h2>
       <p class="confirm__text" id="confirm-text"></p>
       <div class="confirm__actions">
-        <button class="btn btn--ghost" value="cancel" type="submit">Cancelar</button>
+        <button class="btn btn--ghost" value="cancel" type="submit" id="confirm-cancel">Cancelar</button>
         <button class="btn btn--danger" value="confirm" type="submit" id="confirm-ok">Eliminar</button>
       </div>
     </form>
