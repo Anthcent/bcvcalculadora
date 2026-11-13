@@ -61,17 +61,48 @@ function openReceipt() {
   const issuedAt = new Date();
   current = { summary, issuedAt, number: receiptNumber(issuedAt) };
   render(current);
+  // Build the PNG right away so sharing can start inside the tap (iOS drops the gesture otherwise).
+  current.file = makeFile(current);
   dialog.showModal();
 }
 
 /* ---------- Image download (drawn on a canvas, no dependencies) ---------- */
+
+const canvasFont = (weight, size) => `${weight} ${size}px system-ui, "Segoe UI", Roboto, Arial, sans-serif`;
+const NAME_WIDTH = 230;
+const NAME_LINE = 22;
+
+/** Word-wraps text to a max width, splitting words that are too long on their own. */
+function wrapText(ctx, text, maxWidth) {
+  const lines = [];
+  let line = '';
+  for (const word of text.trim().split(/\s+/)) {
+    let rest = word;
+    while (ctx.measureText(rest).width > maxWidth) {
+      let cut = rest.length - 1;
+      while (cut > 1 && ctx.measureText(rest.slice(0, cut)).width > maxWidth) cut -= 1;
+      if (line) { lines.push(line); line = ''; }
+      lines.push(rest.slice(0, cut));
+      rest = rest.slice(cut);
+    }
+    const next = line ? `${line} ${rest}` : rest;
+    if (line && ctx.measureText(next).width > maxWidth) { lines.push(line); line = rest; } else line = next;
+  }
+  if (line) lines.push(line);
+  return lines.length ? lines : [''];
+}
 
 function drawReceipt({ summary, issuedAt, number }) {
   const W = 640;
   const PAD = 40;
   const ROW = 44;
   const out = code(summary.currency);
-  const H = 250 + summary.lines.length * ROW + 170;
+  // Wrap names first so the canvas is tall enough to show every one in full.
+  const measure = document.createElement('canvas').getContext('2d');
+  measure.font = canvasFont(600, 17);
+  const names = summary.lines.map((line) => wrapText(measure, line.name, NAME_WIDTH));
+  const rowsHeight = names.reduce((sum, n) => sum + ROW + (n.length - 1) * NAME_LINE, 0);
+  const H = 250 + rowsHeight + 170;
   const scale = 2;
 
   const canvas = document.createElement('canvas');
@@ -79,7 +110,7 @@ function drawReceipt({ summary, issuedAt, number }) {
   canvas.height = H * scale;
   const ctx = canvas.getContext('2d');
   ctx.scale(scale, scale);
-  const font = (weight, size) => `${weight} ${size}px system-ui, "Segoe UI", Roboto, Arial, sans-serif`;
+  const font = canvasFont;
 
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, W, H);
@@ -144,13 +175,11 @@ function drawReceipt({ summary, issuedAt, number }) {
   };
   rule(y + 14);
 
-  for (const line of summary.lines) {
+  summary.lines.forEach((line, i) => {
     y += ROW;
     ctx.fillStyle = '#111827';
     ctx.font = font(600, 17);
-    let name = line.name;
-    while (ctx.measureText(name).width > 230 && name.length > 3) name = `${name.slice(0, -2)}…`;
-    ctx.fillText(name, PAD, y);
+    names[i].forEach((text, k) => ctx.fillText(text, PAD, y + k * NAME_LINE));
     ctx.textAlign = 'right';
     ctx.fillStyle = '#4B5563';
     ctx.font = font(500, 16);
@@ -159,8 +188,9 @@ function drawReceipt({ summary, issuedAt, number }) {
     ctx.font = font(700, 17);
     ctx.fillText(formatAmount(line.converted), W - PAD, y);
     ctx.textAlign = 'left';
+    y += (names[i].length - 1) * NAME_LINE;
     rule(y + 16);
-  }
+  });
 
   y += 64;
   rule(y - 34, '#0A0E14', 2);
@@ -184,31 +214,66 @@ function drawReceipt({ summary, issuedAt, number }) {
   return canvas;
 }
 
-function downloadImage() {
-  if (!current) return;
-  const canvas = drawReceipt(current);
-  canvas.toBlob((blob) => {
-    if (!blob) {
-      toast('No se pudo generar la imagen.', { tone: 'error' });
-      return;
-    }
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `recibo-bcvcalc-${current.number}.png`;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast('Recibo descargado');
-  }, 'image/png');
+/** Renders the receipt to a PNG File (null if the browser can't encode it). */
+function makeFile(receipt) {
+  return new Promise((resolve) => {
+    drawReceipt(receipt).toBlob((blob) => {
+      resolve(blob ? new File([blob], `recibo-bcvcalc-${receipt.number}.png`, { type: 'image/png' }) : null);
+    }, 'image/png');
+  });
 }
+
+function saveFile(file) {
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = file.name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function downloadImage() {
+  const file = await current?.file;
+  if (!file) {
+    toast('No se pudo generar la imagen.', { tone: 'error' });
+    return;
+  }
+  saveFile(file);
+  toast('Recibo descargado');
+}
+
+/**
+ * Opens the system share sheet with the receipt image so it can go to WhatsApp as a picture.
+ * Needs HTTPS and a browser that shares files (Android Chrome, iOS Safari). Otherwise the
+ * image is downloaded so it can be attached by hand.
+ */
+async function shareImage() {
+  const file = await current?.file;
+  if (!file) {
+    toast('No se pudo generar la imagen.', { tone: 'error' });
+    return;
+  }
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'Recibo de cálculo' });
+    } catch (err) {
+      if (err.name !== 'AbortError') toast('No se pudo compartir la imagen.', { tone: 'error' });
+    }
+    return;
+  }
+  saveFile(file);
+  toast('Este navegador no comparte imágenes. Se descargó el recibo para adjuntarlo en WhatsApp.');
+}
+
 
 /* ---------- Init ---------- */
 
 export function initReceipt() {
   $('#open-receipt').addEventListener('click', openReceipt);
   $('#receipt-print').addEventListener('click', () => window.print());
+  $('#receipt-share').addEventListener('click', shareImage);
   $('#receipt-download').addEventListener('click', downloadImage);
   $('#receipt-close').addEventListener('click', () => dialog.close());
   // Tapping the backdrop closes the receipt.

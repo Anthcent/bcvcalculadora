@@ -840,8 +840,9 @@ button { cursor: pointer; touch-action: manipulation; }
 .receipt__rates { margin: 12px 0 0; font-size: var(--text-xs); color: #4B5563; }
 .receipt__note { margin: 8px 0 0; font-size: 0.6875rem; color: #9CA3AF; }
 
-.receipt__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 12px 12px; }
+.receipt__actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0 12px 12px; }
 .receipt__actions .btn--primary { grid-column: 1 / -1; }
+.receipt__actions .btn--ghost { padding: 0 8px; font-size: var(--text-sm); }
 
 @media print {
   @page { margin: 12mm; }

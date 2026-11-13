@@ -223,8 +223,12 @@
       <p class="receipt__note">Documento informativo. No sustituye una factura fiscal.</p>
     </article>
     <div class="receipt__actions">
-      <button class="btn btn--primary" type="button" id="receipt-print">Imprimir / PDF</button>
-      <button class="btn btn--ghost" type="button" id="receipt-download">Descargar imagen</button>
+      <button class="btn btn--primary" type="button" id="receipt-share">
+        <svg class="btn__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 18.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span>Compartir imagen por WhatsApp</span>
+      </button>
+      <button class="btn btn--ghost" type="button" id="receipt-print">Imprimir / PDF</button>
+      <button class="btn btn--ghost" type="button" id="receipt-download">Descargar</button>
       <button class="btn btn--ghost" type="button" id="receipt-close">Cerrar</button>
     </div>
   </dialog>

@@ -21,8 +21,14 @@ function nextName(windows) {
   return `Cálculo ${n}`;
 }
 
-function createWindow(windows) {
-  return { id: makeId(), name: nextName(windows), from: 'USD', to: 'VES', input: '', included: true };
+// New windows reuse the currency pair in use, since people tend to keep counting in one currency.
+function createWindow(windows, { from = 'USD', to = 'VES' } = {}) {
+  return { id: makeId(), name: nextName(windows), from, to, input: '', included: true };
+}
+
+function currentPair() {
+  const active = state?.windows.find((w) => w.id === state.activeId);
+  return active ? { from: active.from, to: active.to } : undefined;
 }
 
 function isValidWindow(w) {
@@ -67,7 +73,7 @@ export function subscribe(fn) {
 }
 
 export function addWindow() {
-  const win = createWindow(state.windows);
+  const win = createWindow(state.windows, currentPair());
   commit({ windows: [...state.windows, win], activeId: win.id });
   return win;
 }
@@ -82,7 +88,7 @@ export function updateWindow(id, patch) {
 
 /** Drops every window and starts over with a single empty one. */
 export function clearAll() {
-  const win = createWindow([]);
+  const win = createWindow([], currentPair());
   commit({ windows: [win], activeId: win.id });
 }
 
@@ -90,7 +96,7 @@ export function removeWindow(id) {
   const index = state.windows.findIndex((w) => w.id === id);
   if (index === -1) return;
   let windows = state.windows.filter((w) => w.id !== id);
-  if (windows.length === 0) windows = [createWindow([])];
+  if (windows.length === 0) windows = [createWindow([], currentPair())];
   const activeId = state.activeId === id
     ? windows[Math.min(index, windows.length - 1)].id
     : state.activeId;
