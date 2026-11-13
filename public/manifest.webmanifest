@@ -1,0 +1,15 @@
+{
+  "name": "Calculadora BCV",
+  "short_name": "BCV Calc",
+  "description": "Tasas oficiales del BCV y calculadora de bolívares, dólares y euros.",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0A0E14",
+  "theme_color": "#0A0E14",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "bcv-calc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mobile-first BCV exchange rate calculator (VES, USD, EUR).",
+  "type": "module",
+  "engines": {
+    "node": ">=22.15"
+  },
+  "scripts": {
+    "start": "node --use-system-ca server.js",
+    "test": "node --test"
+  }
+}

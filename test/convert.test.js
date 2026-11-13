@@ -1,0 +1,42 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { convert, aggregate, toKeypadInput, normalizeTypedAmount } from '../public/js/convert.js';
+
+const rates = { usd: 911.6243, eur: 1009.34130871 };
+const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} != ${expected}`);
+
+test('converts Bs to USD and back', () => {
+  close(convert(911.6243, 'VES', 'USD', rates), 1);
+  close(convert(10, 'USD', 'VES', rates), 9116.243);
+});
+
+test('converts USD to EUR through the cross rate', () => {
+  close(convert(100, 'USD', 'EUR', rates), (100 * 911.6243) / 1009.34130871);
+  close(convert(convert(100, 'USD', 'EUR', rates), 'EUR', 'USD', rates), 100);
+});
+
+test('aggregates included windows in the chosen currency', () => {
+  const windows = [
+    { id: 'a', name: 'Rent', from: 'USD', amount: 10, included: true },
+    { id: 'b', name: 'Food', from: 'VES', amount: 911.6243, included: true },
+    { id: 'c', name: 'Skip', from: 'EUR', amount: 999, included: false },
+  ];
+  const result = aggregate(windows, 'USD', rates);
+  assert.equal(result.lines.length, 2);
+  close(result.total, 11);
+});
+
+test('swap carries the rounded result as the new amount', () => {
+  const result = toKeypadInput(convert(5, 'USD', 'VES', rates));
+  assert.equal(result, '4558,12');
+  assert.equal(toKeypadInput(convert(4558.12, 'VES', 'USD', rates)), '5');
+  assert.equal(toKeypadInput(0), '');
+});
+
+test('normalizes typed amounts in Venezuelan and plain formats', () => {
+  assert.equal(normalizeTypedAmount('1.234,56'), '1234,56');
+  assert.equal(normalizeTypedAmount('1234.5'), '1234,5');
+  assert.equal(normalizeTypedAmount('1.500'), '1500');
+  assert.equal(normalizeTypedAmount('25'), '25');
+  assert.equal(normalizeTypedAmount('abc'), '');
+});
