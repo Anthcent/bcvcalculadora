@@ -34,10 +34,9 @@ function ratesText(rates) {
 function render({ summary, issuedAt, number }) {
   const out = code(summary.currency);
   $('#receipt-meta').textContent = `N.º ${number} · ${issuedText(issuedAt)}`;
-  $('#receipt-out-head').textContent = out;
   $('#receipt-lines').replaceChildren(...summary.lines.map((line) => {
     const tr = document.createElement('tr');
-    for (const text of [line.name, `${formatAmount(line.amount)} ${code(line.from)}`, formatAmount(line.converted)]) {
+    for (const text of [line.name, `${formatAmount(line.amount)} ${code(line.from)}`, `${formatAmount(line.result)} ${code(line.to)}`]) {
       const td = document.createElement('td');
       td.textContent = text;
       tr.append(td);
@@ -162,7 +161,7 @@ function drawReceipt({ summary, issuedAt, number }) {
   ctx.fillText('CONCEPTO', PAD, y);
   ctx.textAlign = 'right';
   ctx.fillText('MONTO', W - PAD - 170, y);
-  ctx.fillText(out.toUpperCase(), W - PAD, y);
+  ctx.fillText('EQUIVALE', W - PAD, y);
   ctx.textAlign = 'left';
 
   const rule = (atY, color = '#E5E7EB', width = 1) => {
@@ -186,7 +185,7 @@ function drawReceipt({ summary, issuedAt, number }) {
     ctx.fillText(`${formatAmount(line.amount)} ${code(line.from)}`, W - PAD - 170, y);
     ctx.fillStyle = '#111827';
     ctx.font = font(700, 17);
-    ctx.fillText(formatAmount(line.converted), W - PAD, y);
+    ctx.fillText(`${formatAmount(line.result)} ${code(line.to)}`, W - PAD, y);
     ctx.textAlign = 'left';
     y += (names[i].length - 1) * NAME_LINE;
     rule(y + 16);

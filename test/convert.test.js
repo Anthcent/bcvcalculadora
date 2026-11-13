@@ -40,3 +40,10 @@ test('normalizes typed amounts in Venezuelan and plain formats', () => {
   assert.equal(normalizeTypedAmount('25'), '25');
   assert.equal(normalizeTypedAmount('abc'), '');
 });
+
+test('each aggregated line keeps its own conversion, apart from the total currency', () => {
+  const [line] = aggregate([{ id: 'a', name: 'Pago', from: 'VES', to: 'USD', amount: 2000 }], 'VES', rates).lines;
+  close(line.result, 2000 / 911.6243); // 2,19 USD
+  assert.equal(line.to, 'USD');
+  close(line.converted, 2000);
+});

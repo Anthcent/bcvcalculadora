@@ -40,7 +40,8 @@ export function thirdCurrency(from, to) {
 
 /**
  * Aggregates calculation windows into a single output currency.
- * Each window: { id, name, from, amount, included }.
+ * Each window: { id, name, from, to, amount, included }.
+ * Every line keeps its own conversion (`result` in `to`) plus its value in the total currency.
  */
 export function aggregate(windows, outCurrency, rates) {
   const lines = windows
@@ -49,7 +50,9 @@ export function aggregate(windows, outCurrency, rates) {
       id: w.id,
       name: w.name,
       from: w.from,
+      to: w.to ?? outCurrency,
       amount: w.amount,
+      result: convert(w.amount, w.from, w.to ?? outCurrency, rates),
       converted: convert(w.amount, w.from, outCurrency, rates),
     }));
   const total = lines.reduce((sum, line) => sum + line.converted, 0);

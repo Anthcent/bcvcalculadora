@@ -18,6 +18,21 @@ const docked = window.matchMedia('(min-width: 900px)');
 let outCurrency = CURRENCIES.includes(load('totalCurrency')) ? load('totalCurrency') : 'VES';
 let isOpen = false;
 
+// The total follows the currency being calculated into, so Bs → USD work totals in USD.
+// Picking a currency in the panel still overrides it until the pair changes again.
+let lastTo = store.getActive()?.to;
+function followActivePair() {
+  const to = store.getActive()?.to;
+  if (!to || to === lastTo) return;
+  lastTo = to;
+  setTotalCurrency(to);
+}
+
+function setTotalCurrency(cur) {
+  outCurrency = cur;
+  save('totalCurrency', cur);
+}
+
 function windowsWithAmounts() {
   return store.getState().windows.map((w) => ({ ...w, amount: parseInput(w.input) }));
 }
@@ -156,7 +171,7 @@ export function buildShareText() {
   const out = code(outCurrency);
   return [
     '*Resumen de cálculos*',
-    ...lines.map((l) => `• ${l.name}: ${formatAmount(l.amount)} ${code(l.from)} → ${formatAmount(l.converted)} ${out}`),
+    ...lines.map((l) => `• ${l.name}: ${formatAmount(l.amount)} ${code(l.from)} → ${formatAmount(l.result)} ${code(l.to)}`),
     '',
     `*Total: ${formatAmount(total)} ${out}*`,
     '',
@@ -227,8 +242,7 @@ async function clearAll() {
 
 export function initPanelView() {
   buildSegment(currencySeg, (cur) => {
-    outCurrency = cur;
-    save('totalCurrency', cur);
+    setTotalCurrency(cur);
     render();
   });
 
@@ -250,7 +264,10 @@ export function initPanelView() {
   $('#share-copy').addEventListener('click', copyText);
   $('#clear-all').addEventListener('click', clearAll);
 
-  store.subscribe(render);
+  store.subscribe(() => {
+    followActivePair();
+    render();
+  });
   onRatesChange(render);
   syncDrawer();
   render();
