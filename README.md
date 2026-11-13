@@ -21,7 +21,7 @@ a running total, WhatsApp sharing, and a printable or downloadable receipt.
 
 ## Requirements
 
-- Node.js **22.15+**. No npm dependencies.
+- Node.js **22+**. No npm dependencies.
 
 ## Run
 
@@ -32,17 +32,21 @@ npm test
 
 `PORT` overrides the default port.
 
-### Why `--use-system-ca`
+### BCV certificate chain
 
-bcv.org.ve serves an incomplete TLS certificate chain, so Node's bundled CA store rejects it.
-The start script uses `--use-system-ca`, which trusts the operating system's certificate store.
-TLS verification stays **on**. Never disable it with `NODE_TLS_REJECT_UNAUTHORIZED=0`.
+bcv.org.ve serves an incomplete TLS chain: it omits the "Sectigo Public Server Authentication CA DV R36"
+intermediate. Browsers and Windows fetch it on the fly, but Node on Linux (e.g. Vercel) does not.
+`src/bcv-ca.js` bundles that public intermediate. It comes from the official Sectigo URL in the
+certificate's AIA field, and the SHA-256 fingerprint is in the file. The server passes it to Node together
+with the standard root store. TLS verification stays **on**: the chain must still end at a trusted
+root. Never disable it with `NODE_TLS_REJECT_UNAUTHORIZED=0`.
 
 ## Project structure
 
 ```
 server.js            Static file server + GET /api/rates
 src/bcv-parser.js    Parses rates and value date from the BCV home page
+src/bcv-ca.js       Intermediate CA missing from the BCV chain
 src/rates-service.js In-memory cache (10 min), forced refresh, stale fallback
 public/              Vanilla HTML/CSS/JS client (ES modules, no build step)
 test/                node:test unit tests

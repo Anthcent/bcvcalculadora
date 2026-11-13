@@ -1,23 +1,46 @@
+import https from 'node:https';
+import tls from 'node:tls';
 import { parseBcvHtml } from './bcv-parser.js';
+import { SECTIGO_DV_R36 } from './bcv-ca.js';
 
 const BCV_URL = 'https://www.bcv.org.ve/';
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 15_000;
 // After a failure, wait this long before hitting BCV again (forced refreshes bypass it).
 const RETRY_COOLDOWN_MS = 30_000;
+// Mozilla roots plus the intermediate BCV forgets to send. Verification stays fully on.
+const BCV_CA = [...tls.rootCertificates, SECTIGO_DV_R36];
 
 let cache = null; // { usd, eur, valueDate, fetchedAt }
 let inflight = null;
 let lastFailureAt = 0;
 let consecutiveFailures = 0;
 
-async function fetchFromBcv() {
-  const res = await fetch(BCV_URL, {
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    headers: { 'User-Agent': 'Mozilla/5.0 (bcv-calc)', Accept: 'text/html' },
+function getBcvHtml() {
+  return new Promise((resolve, reject) => {
+    const req = https.get(BCV_URL, {
+      ca: BCV_CA,
+      timeout: FETCH_TIMEOUT_MS,
+      headers: { 'User-Agent': 'Mozilla/5.0 (bcv-calc)', Accept: 'text/html' },
+    }, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        reject(new Error(`BCV responded with HTTP ${res.statusCode}`));
+        return;
+      }
+      res.setEncoding('utf8');
+      let html = '';
+      res.on('data', (chunk) => { html += chunk; });
+      res.on('end', () => resolve(html));
+      res.on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(Object.assign(new Error('BCV request timed out'), { code: 'ETIMEDOUT' })));
+    req.on('error', reject);
   });
-  if (!res.ok) throw new Error(`BCV responded with HTTP ${res.status}`);
-  const html = await res.text();
+}
+
+async function fetchFromBcv() {
+  const html = await getBcvHtml();
   try {
     return { ...parseBcvHtml(html), fetchedAt: new Date().toISOString() };
   } catch (err) {
@@ -35,7 +58,7 @@ function logFailure(err) {
   const kind = err.code === 'PARSE_ERROR' ? 'parse-error' : 'fetch-error';
   const staleMin = cache ? Math.round((Date.now() - Date.parse(cache.fetchedAt)) / 60000) : null;
   console.error(
-    `[rates] ${kind} failures=${consecutiveFailures} staleMinutes=${staleMin ?? 'n/a'} reason=${err.cause?.code ?? err.message}`
+    `[rates] ${kind} failures=${consecutiveFailures} staleMinutes=${staleMin ?? 'n/a'} reason=${err.code ?? err.cause?.code ?? err.message}`
   );
 }
 
