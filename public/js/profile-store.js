@@ -1,4 +1,5 @@
 import { load, save } from './storage.js';
+import { syncSettings } from './db-sync.js';
 
 const STORAGE_KEY = 'profile';
 const listeners = new Set();
@@ -37,14 +38,20 @@ export function getProfile() {
   return state;
 }
 
-export function updateProfile(patch) {
+export function updateProfile(patch, { sync = true } = {}) {
   state = {
     ...state,
     ...patch,
     pagoMovil: patch.pagoMovil ? { ...state.pagoMovil, ...patch.pagoMovil } : state.pagoMovil,
   };
   save(STORAGE_KEY, state);
+  if (sync) syncSettings({ profile: state });
   listeners.forEach((fn) => fn(state));
+}
+
+export function hydrateProfileFromDb(remoteProfile) {
+  if (!remoteProfile || typeof remoteProfile !== 'object') return;
+  updateProfile(remoteProfile, { sync: false });
 }
 
 export function onProfileChange(fn) {

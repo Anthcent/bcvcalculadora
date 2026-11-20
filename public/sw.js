@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bcv-calc-v3';
+const CACHE_NAME = 'bcv-calc-v4';
 
 const SHELL_ASSETS = [
   '/',
@@ -12,6 +12,7 @@ const SHELL_ASSETS = [
   '/js/confirm.js',
   '/js/convert.js',
   '/js/custom-view.js',
+  '/js/db-sync.js',
   '/js/expr.js',
   '/js/format.js',
   '/js/panel-view.js',

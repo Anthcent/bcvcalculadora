@@ -1,6 +1,7 @@
 import { load, save } from './storage.js';
 import { CURRENCIES } from './convert.js';
 import { isValidExprString } from './expr.js';
+import { syncCalculations } from './db-sync.js';
 
 /**
  * Calculation windows, persisted on every change so switching never loses data.
@@ -73,10 +74,33 @@ function restore() {
 let state = restore();
 
 // Every change stamps the time of last use, which drives the "old calculations" prompt.
-function commit(next) {
-  state = { ...next, updatedAt: Date.now() };
+function commit(next, { sync = true, updatedAt = Date.now() } = {}) {
+  state = { ...next, updatedAt };
   save(STORAGE_KEY, state);
+  if (sync) syncCalculations(state);
   listeners.forEach((fn) => fn(state));
+}
+
+/** Hydrates calculation windows from SQLite when server data is newer (or local is empty). */
+export function hydrateFromDb(remote) {
+  if (!remote?.windows?.length) return;
+  const localHasData = state.windows.some((w) => w.input);
+  const remoteUpdated = Number.isFinite(remote.updatedAt) ? remote.updatedAt : 0;
+  if (localHasData && remoteUpdated < state.updatedAt) {
+    // Local offline edits are newer: push them up to SQLite instead.
+    syncCalculations(state);
+    return;
+  }
+  const windows = remote.windows.filter(isValidWindow).map((w, i) => ({
+    ...w,
+    name: typeof w.name === 'string' && w.name.trim() ? w.name : `Cálculo ${i + 1}`,
+    input: isValidExprString(w.input) ? w.input : '',
+    qty: normalizeQty(w.qty),
+    included: w.included !== false,
+  }));
+  if (windows.length === 0) return;
+  const activeId = windows.some((w) => w.id === remote.activeId) ? remote.activeId : windows[0].id;
+  commit({ windows, activeId }, { sync: false, updatedAt: remoteUpdated || Date.now() });
 }
 
 /** True when at least one calculation has an amount typed in. */

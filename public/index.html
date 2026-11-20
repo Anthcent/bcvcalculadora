@@ -321,6 +321,7 @@
       <div class="panel__head">
         <h2 class="panel__title" id="panel-title">Mis cálculos</h2>
         <div class="panel__head-actions">
+          <button class="pill-btn pill-btn--sm" type="button" id="open-saved-receipts" title="Ver recibos guardados en SQLite">Recibos</button>
           <button class="pill-btn pill-btn--sm" type="button" id="panel-profile-btn">Pago Móvil</button>
           <button class="icon-btn panel__close" type="button" id="close-panel" aria-label="Cerrar panel">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
@@ -457,6 +458,21 @@
         <button class="btn btn--primary" type="submit">Guardar</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog class="profile-dialog" id="receipts-history-dialog" aria-labelledby="receipts-history-title">
+    <div class="profile-form">
+      <div class="profile-form__head">
+        <div>
+          <h2 class="confirm__title" id="receipts-history-title">Recibos guardados</h2>
+          <p class="chips-editor__sub">Toca uno para reabrirlo con su tasa original</p>
+        </div>
+        <button class="icon-btn" type="button" id="receipts-history-close" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <ul class="saved-rec__list" id="saved-receipts-list"></ul>
+    </div>
   </dialog>
 
   <dialog class="receipt-dialog" id="receipt-dialog" aria-labelledby="receipt-title">

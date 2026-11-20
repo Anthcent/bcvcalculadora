@@ -1,5 +1,6 @@
 import { load, save } from './storage.js';
 import { resolveEffectiveRates } from './convert.js';
+import { syncCustomRate } from './db-sync.js';
 
 const STORAGE_KEY = 'rates';
 const HISTORY_KEY = 'rateHistory';
@@ -114,10 +115,44 @@ export function getCustomRateConfig() {
   return custom;
 }
 
-export function setCustomRateConfig(patch) {
+export function setCustomRateConfig(patch, { sync = true } = {}) {
   custom = { ...custom, ...patch };
   save(CUSTOM_KEY, custom);
+  if (sync) syncCustomRate(custom);
   notify();
+}
+
+export function hydrateHistoryFromDb(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  const byDate = new Map();
+  for (const e of [...history, ...rows]) {
+    if (e && Number(e.usd) > 0 && Number(e.eur) > 0) {
+      const dateKey = e.valueDate || String(e.fetchedAt || '').slice(0, 10);
+      byDate.set(dateKey, {
+        valueDate: dateKey,
+        usd: Number(e.usd),
+        eur: Number(e.eur),
+        fetchedAt: e.fetchedAt || new Date().toISOString(),
+      });
+    }
+  }
+  history = [...byDate.values()]
+    .sort((a, b) => a.valueDate.localeCompare(b.valueDate))
+    .slice(-MAX_HISTORY);
+  save(HISTORY_KEY, history);
+  notify();
+}
+
+export function hydrateCustomFromDb(cfg) {
+  if (!cfg || typeof cfg !== 'object') return;
+  setCustomRateConfig({
+    enabled: Boolean(cfg.enabled),
+    mode: cfg.mode === 'margin' ? 'margin' : 'manual',
+    usd: Number(cfg.usd) > 0 ? Number(cfg.usd) : null,
+    eur: Number(cfg.eur) > 0 ? Number(cfg.eur) : null,
+    marginPct: Number.isFinite(Number(cfg.marginPct)) ? Number(cfg.marginPct) : 5,
+    label: typeof cfg.label === 'string' ? cfg.label : '',
+  }, { sync: false });
 }
 
 export function disableCustomRate() {

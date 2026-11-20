@@ -4,6 +4,7 @@ import { getRates, onRatesChange } from './rates-api.js';
 import { load, save } from './storage.js';
 import { buildSegment, markSegment, startCalculation } from './calculator-view.js';
 import { copyText, formatBankCopy } from './clipboard.js';
+import { syncQuickChips } from './db-sync.js';
 import { toast } from './toast.js';
 
 const form = document.querySelector('#quick-form');
@@ -227,6 +228,7 @@ function setupChipsEditor() {
 
     pages = [parsedForeign.slice(0, MAX_CHIPS), parsedVes.slice(0, MAX_CHIPS)];
     save(CHIPS_KEY, { foreign: pages[0], ves: pages[1] });
+    syncQuickChips({ foreign: pages[0], ves: pages[1] });
     buildChips();
     updateHint();
     dialog.close();
@@ -309,6 +311,21 @@ function renderPreview() {
     });
     return item;
   }));
+}
+
+export function getChipPages() {
+  return { foreign: [...pages[0]], ves: [...pages[1]] };
+}
+
+export function hydrateChipsFromDb(remote) {
+  if (!remote) return;
+  pages = [
+    sanitizeChipList(remote.foreign, DEFAULT_PAGES[0]),
+    sanitizeChipList(remote.ves, DEFAULT_PAGES[1]),
+  ];
+  save(CHIPS_KEY, { foreign: pages[0], ves: pages[1] });
+  buildChips();
+  updateHint();
 }
 
 /** Amount box on the rates screen: type, hit "go", land in the calculator with it loaded. */

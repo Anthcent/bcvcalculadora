@@ -1,4 +1,5 @@
 import { load, save } from './storage.js';
+import { syncSettings } from './db-sync.js';
 
 const STORAGE_KEY = 'theme';
 const THEME_COLORS = {
@@ -40,6 +41,13 @@ export function toggleTheme() {
   const next = current === 'dark' ? 'light' : 'dark';
   save(STORAGE_KEY, next);
   apply(next);
+  syncSettings({ theme: next });
+}
+
+export function hydrateThemeFromDb(theme) {
+  if (theme !== 'light' && theme !== 'dark') return;
+  save(STORAGE_KEY, theme);
+  apply(theme);
 }
 
 export function initTheme() {

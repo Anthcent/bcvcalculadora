@@ -1,6 +1,7 @@
 import { formatAmount, formatNumber, formatValueDate, code } from './format.js';
 import { getSummary } from './panel-view.js';
 import { getProfile, updateProfile, formatPagoMovilLines, hasPagoMovilData } from './profile-store.js';
+import { saveReceiptToDb, fetchSavedReceipts, deleteReceiptFromDb } from './db-sync.js';
 import { toast } from './toast.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -99,8 +100,39 @@ function render({ summary, issuedAt, number, meta }) {
   }
 }
 
+let persistTimer = null;
+
+function persistCurrentReceipt(receipt) {
+  if (!receipt || receipt.readOnly) return;
+  const { summary, issuedAt, number, meta } = receipt;
+  const payload = {
+    receiptNumber: number,
+    title: meta.businessName || 'Recibo de cálculo',
+    clientName: meta.clientName || '',
+    note: meta.note || '',
+    totalCurrency: summary.currency,
+    totalAmount: summary.total,
+    rateUsd: summary.rates.usd,
+    rateEur: summary.rates.eur,
+    rateLabel: summary.rates.isCustom ? (summary.rates.customLabel || 'Tasa personalizada') : 'Tasa BCV',
+    valueDate: summary.rates.isCustom ? null : summary.rates.valueDate,
+    pagoMovil: meta.includePm && meta.pmLines.length ? meta.pmLines : null,
+    issuedAt: issuedAt.toISOString(),
+    items: summary.lines.map((l) => ({
+      name: l.name,
+      from: l.from,
+      to: l.to,
+      unitAmount: l.amount,
+      qty: l.qty > 1 ? l.qty : 1,
+      resultAmount: l.result,
+      convertedAmount: l.converted,
+    })),
+  };
+  saveReceiptToDb(payload);
+}
+
 function syncReceiptMeta() {
-  if (!current) return;
+  if (!current || current.readOnly) return;
   current.meta = readReceiptMeta();
   // Persist businessName, clientName, receiptNote and PM toggle so next time it remembers.
   updateProfile({
@@ -111,6 +143,8 @@ function syncReceiptMeta() {
   });
   render(current);
   current.file = makeFile(current);
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => persistCurrentReceipt(current), 400);
 }
 
 function openReceipt() {
@@ -124,6 +158,9 @@ function openReceipt() {
     return;
   }
 
+  const editFold = $('.receipt__edit');
+  if (editFold) editFold.hidden = false;
+
   const profile = getProfile();
   if ($('#rec-business')) $('#rec-business').value = profile.businessName;
   if ($('#rec-client')) $('#rec-client').value = profile.clientName;
@@ -136,11 +173,116 @@ function openReceipt() {
 
   const issuedAt = new Date();
   const meta = readReceiptMeta();
-  current = { summary, issuedAt, number: receiptNumber(issuedAt), meta };
+  current = { summary, issuedAt, number: receiptNumber(issuedAt), meta, readOnly: false };
   render(current);
   // Build the PNG right away so sharing can start inside the tap (iOS drops the gesture otherwise).
   current.file = makeFile(current);
+  persistCurrentReceipt(current);
   dialog.showModal();
+}
+
+function openSavedReceipt(rec) {
+  const editFold = $('.receipt__edit');
+  if (editFold) editFold.hidden = true;
+  const isCustom = rec.rateLabel !== 'Tasa BCV';
+  const summary = {
+    currency: rec.totalCurrency,
+    total: rec.totalAmount,
+    lines: rec.items.map((it) => ({
+      name: it.name,
+      from: it.from,
+      to: it.to,
+      amount: it.unitAmount,
+      qty: it.qty,
+      result: it.resultAmount,
+      converted: it.convertedAmount,
+    })),
+    rates: {
+      usd: rec.rateUsd,
+      eur: rec.rateEur,
+      valueDate: rec.bcvValueDate,
+      isCustom,
+      customLabel: rec.rateLabel,
+    },
+  };
+  const meta = {
+    businessName: rec.title,
+    clientName: rec.clientName || '',
+    note: rec.note || '',
+    includePm: Array.isArray(rec.pagoMovil) && rec.pagoMovil.length > 0,
+    pmLines: Array.isArray(rec.pagoMovil) ? rec.pagoMovil : [],
+  };
+  current = {
+    summary,
+    issuedAt: new Date(rec.issuedAt),
+    number: rec.receiptNumber,
+    meta,
+    readOnly: true,
+  };
+  render(current);
+  current.file = makeFile(current);
+  dialog.showModal();
+}
+
+async function openSavedReceiptsHistory() {
+  const histDialog = $('#receipts-history-dialog');
+  const listEl = $('#saved-receipts-list');
+  if (!histDialog || !listEl) return;
+
+  listEl.innerHTML = '<li class="saved-rec__empty">Cargando recibos guardados…</li>';
+  histDialog.showModal();
+
+  const receipts = await fetchSavedReceipts();
+  if (receipts === null) {
+    listEl.innerHTML = '<li class="saved-rec__empty">Sin conexión con la base de datos SQLite en este momento.</li>';
+    return;
+  }
+  if (receipts.length === 0) {
+    listEl.innerHTML = '<li class="saved-rec__empty">Aún no hay recibos guardados. Se guardan automáticamente cada vez que generas un recibo.</li>';
+    return;
+  }
+
+  listEl.replaceChildren(...receipts.map((rec) => {
+    const li = document.createElement('li');
+    li.className = 'saved-rec__item';
+
+    const openBtn = document.createElement('button');
+    openBtn.type = 'button';
+    openBtn.className = 'saved-rec__open';
+    const title = document.createElement('strong');
+    title.className = 'saved-rec__title';
+    title.textContent = rec.clientName ? `${rec.title} · ${rec.clientName}` : rec.title;
+    const meta = document.createElement('span');
+    meta.className = 'saved-rec__meta';
+    meta.textContent = `${issuedText(new Date(rec.issuedAt))} · ${rec.items.length} ${rec.items.length === 1 ? 'ítem' : 'ítems'}`;
+    const total = document.createElement('span');
+    total.className = 'saved-rec__total num';
+    total.textContent = `${formatAmount(rec.totalAmount)} ${code(rec.totalCurrency)}`;
+    openBtn.append(title, total, meta);
+    openBtn.addEventListener('click', () => {
+      histDialog.close();
+      openSavedReceipt(rec);
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'icon-btn item__delete';
+    delBtn.setAttribute('aria-label', `Eliminar recibo ${rec.receiptNumber}`);
+    delBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    delBtn.addEventListener('click', async () => {
+      const ok = await deleteReceiptFromDb(rec.id);
+      if (ok) {
+        li.remove();
+        if (listEl.children.length === 0) {
+          listEl.innerHTML = '<li class="saved-rec__empty">No quedan recibos guardados.</li>';
+        }
+        toast('Recibo eliminado de SQLite');
+      }
+    });
+
+    li.append(openBtn, delBtn);
+    return li;
+  }));
 }
 
 /* ---------- Image download (drawn on a canvas, no dependencies) ---------- */
@@ -393,6 +535,11 @@ async function shareImage() {
 
 export function initReceipt() {
   $('#open-receipt').addEventListener('click', openReceipt);
+  $('#open-saved-receipts')?.addEventListener('click', openSavedReceiptsHistory);
+  $('#receipts-history-close')?.addEventListener('click', () => $('#receipts-history-dialog')?.close());
+  $('#receipts-history-dialog')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) e.currentTarget.close();
+  });
   $('#receipt-print').addEventListener('click', () => window.print());
   $('#receipt-share').addEventListener('click', shareImage);
   $('#receipt-download').addEventListener('click', downloadImage);
