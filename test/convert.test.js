@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {
   convert,
   aggregate,
-  computeChange,
   resolveEffectiveRates,
   toKeypadInput,
   normalizeTypedAmount,
@@ -72,36 +71,6 @@ test('parseInput evaluates arithmetic expressions too', () => {
   close(parseInput('100+16%'), 116);
   close(parseInput('25×4'), 100);
   close(parseInput('12,5'), 12.5);
-});
-
-test('computeChange calculates remaining, exact, and change across mixed currencies', () => {
-  // Due: $35; Paid: $20 + 9116.243 Bs ($10) -> remaining $5
-  const rem = computeChange(
-    { amount: 35, currency: 'USD' },
-    [{ amount: 20, currency: 'USD' }, { amount: 9116.243, currency: 'VES' }],
-    rates,
-  );
-  assert.equal(rem.status, 'remaining');
-  close(rem.diff.USD, 5);
-  close(rem.diff.VES, 5 * rates.usd);
-
-  // Exact payment: 1 USD paid with 911.6243 Bs
-  const exact = computeChange(
-    { amount: 1, currency: 'USD' },
-    [{ amount: 911.6243, currency: 'VES' }],
-    rates,
-  );
-  assert.equal(exact.status, 'exact');
-  assert.equal(exact.diff.VES, 0);
-
-  // Overpaid: Due $10, paid $20 -> change $10
-  const chg = computeChange(
-    { amount: 10, currency: 'USD' },
-    [{ amount: 20, currency: 'USD' }],
-    rates,
-  );
-  assert.equal(chg.status, 'change');
-  close(chg.diff.USD, 10);
 });
 
 test('resolveEffectiveRates applies manual rate and percentage margin', () => {

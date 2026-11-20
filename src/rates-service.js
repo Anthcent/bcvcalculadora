@@ -1,17 +1,42 @@
 import https from 'node:https';
 import tls from 'node:tls';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseBcvHtml } from './bcv-parser.js';
-import { SECTIGO_DV_R36 } from './bcv-ca.js';
+import { BCV_INTERMEDIATES } from './bcv-ca.js';
 
 const BCV_URL = 'https://www.bcv.org.ve/';
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 15_000;
 // After a failure, wait this long before hitting BCV again (forced refreshes bypass it).
 const RETRY_COOLDOWN_MS = 30_000;
-// Mozilla roots plus the intermediate BCV forgets to send. Verification stays fully on.
-const BCV_CA = [...tls.rootCertificates, SECTIGO_DV_R36];
+// Mozilla roots plus the intermediates BCV omits (DV R36 and OV R36). Verification stays fully on.
+const BCV_CA = [...tls.rootCertificates, ...BCV_INTERMEDIATES];
+const DISK_CACHE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '.bcv-cache.json');
 
-let cache = null; // { usd, eur, valueDate, fetchedAt }
+function loadDiskCache() {
+  try {
+    const raw = fs.readFileSync(DISK_CACHE_PATH, 'utf8');
+    const data = JSON.parse(raw);
+    if (data && Number(data.usd) > 0 && Number(data.eur) > 0 && typeof data.fetchedAt === 'string') {
+      return data;
+    }
+  } catch {
+    // No disk cache yet or read-only filesystem: start empty.
+  }
+  return null;
+}
+
+function saveDiskCache(entry) {
+  try {
+    fs.writeFileSync(DISK_CACHE_PATH, JSON.stringify(entry), 'utf8');
+  } catch {
+    // Ignore on read-only filesystems (e.g. serverless).
+  }
+}
+
+let cache = loadDiskCache(); // { usd, eur, valueDate, fetchedAt }
 let inflight = null;
 let lastFailureAt = 0;
 let consecutiveFailures = 0;
@@ -64,7 +89,7 @@ function logFailure(err) {
 
 /**
  * Returns rates from cache when fresh, otherwise refetches.
- * On failure, falls back to the last cached value flagged as stale.
+ * On failure, falls back to the last cached value (including disk cache) flagged as stale.
  * Throws only when there is nothing cached.
  */
 export async function getRates({ refresh = false } = {}) {
@@ -78,6 +103,7 @@ export async function getRates({ refresh = false } = {}) {
     // Share one in-flight request between concurrent callers.
     inflight ??= fetchFromBcv().finally(() => { inflight = null; });
     cache = await inflight;
+    saveDiskCache(cache);
     consecutiveFailures = 0;
     lastFailureAt = 0;
     return { ...cache, source: 'bcv.org.ve', stale: false };

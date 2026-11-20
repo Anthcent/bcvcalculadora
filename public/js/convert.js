@@ -68,44 +68,6 @@ export function aggregate(windows, outCurrency, rates) {
 }
 
 /**
- * Computes remaining balance or change due across mixed-currency payments.
- * due: { amount, currency }
- * payments: Array<{ amount, currency }>
- * Returns values expressed in Bs, USD, and EUR plus status: 'empty' | 'remaining' | 'exact' | 'change'.
- */
-export function computeChange(due, payments, rates) {
-  const dueAmount = Number.isFinite(due?.amount) && due.amount > 0 ? due.amount : 0;
-  const dueBs = dueAmount > 0 ? convert(dueAmount, due.currency, 'VES', rates) : 0;
-  const paidBs = (payments ?? []).reduce((sum, p) => {
-    const amt = Number.isFinite(p?.amount) && p.amount > 0 ? p.amount : 0;
-    return sum + (amt > 0 ? convert(amt, p.currency, 'VES', rates) : 0);
-  }, 0);
-
-  // Treat differences under half a cent in Bs (or 0.005 Bs) as exact to avoid floating-point noise.
-  const EPS = 0.005;
-  const diffBs = paidBs - dueBs;
-  let status = 'empty';
-  if (dueBs > 0) {
-    if (Math.abs(diffBs) <= EPS) status = 'exact';
-    else status = diffBs > 0 ? 'change' : 'remaining';
-  }
-
-  const absDiffBs = Math.abs(diffBs) <= EPS ? 0 : Math.abs(diffBs);
-  const toAll = (bsVal) => ({
-    VES: bsVal,
-    USD: convert(bsVal, 'VES', 'USD', rates),
-    EUR: convert(bsVal, 'VES', 'EUR', rates),
-  });
-
-  return {
-    status,
-    due: toAll(dueBs),
-    paid: toAll(paidBs),
-    diff: toAll(absDiffBs),
-  };
-}
-
-/**
  * Computes effective rates when a custom rate or percentage margin is enabled.
  * custom: { enabled, mode: 'manual' | 'margin', usd, eur, marginPct, label }
  */
