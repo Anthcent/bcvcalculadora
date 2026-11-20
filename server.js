@@ -45,7 +45,9 @@ async function serveStatic(pathname, res) {
   try {
     const data = await readFile(filePath);
     const type = MIME[path.extname(filePath)] ?? 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' });
+    const headers = { 'Content-Type': type, 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' };
+    if (relative === 'sw.js') headers['Service-Worker-Allowed'] = '/';
+    res.writeHead(200, headers);
     res.end(data);
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found');

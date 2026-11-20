@@ -27,30 +27,48 @@
         </svg>
         <h1 class="brand__name">BCV<span>Calc</span></h1>
       </div>
-      <p class="status" id="status" role="status" aria-live="polite"></p>
+      <div class="topbar__right">
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+        <div class="topbar__tools">
+          <button class="icon-btn topbar__btn" type="button" id="open-profile" aria-label="Datos de Pago Móvil y recibo" title="Datos de Pago Móvil y recibo">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M7 15h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <button class="icon-btn topbar__btn theme-btn" type="button" id="theme-toggle" aria-label="Cambiar tema" title="Cambiar tema">
+            <svg class="theme-btn__sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <svg class="theme-btn__moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
     </header>
+
+    <div class="custom-banner" id="custom-rate-banner" hidden>
+      <span class="custom-banner__text" id="custom-banner-label"></span>
+      <button class="custom-banner__btn" type="button" id="custom-reset-bcv">Volver a BCV</button>
+    </div>
 
     <main class="views">
       <!-- Rates -->
       <section class="view view--rates" id="view-rates" aria-labelledby="nav-rates" data-view="rates">
         <div class="rates" aria-label="Tasas oficiales del BCV">
-          <article class="rate" data-cur="USD">
+          <article class="rate copyable" data-cur="USD" role="button" tabindex="0" aria-label="Copiar tasa del Dólar">
             <div class="rate__head">
               <span class="rate__badge">$</span>
               <span class="rate__name">Dólar</span>
+              <span class="rate__var num" data-rate-var="USD" hidden></span>
               <span class="rate__unit">1 USD =</span>
             </div>
             <p class="rate__value"><span class="num" data-rate="USD">–</span><span class="rate__bs">Bs</span></p>
-            <p class="rate__detail">Exacta <span class="num" data-rate-exact="USD">–</span> · 1 Bs = <span class="num" data-rate-inverse="USD">–</span> $</p>
+            <p class="rate__detail">Exacta <span class="num" data-rate-exact="USD">–</span> · 1 Bs = <span class="num" data-rate-inverse="USD">–</span> $ · <span class="copy-inline">Tocar para copiar</span></p>
           </article>
-          <article class="rate" data-cur="EUR">
+          <article class="rate copyable" data-cur="EUR" role="button" tabindex="0" aria-label="Copiar tasa del Euro">
             <div class="rate__head">
               <span class="rate__badge">€</span>
               <span class="rate__name">Euro</span>
+              <span class="rate__var num" data-rate-var="EUR" hidden></span>
               <span class="rate__unit">1 EUR =</span>
             </div>
             <p class="rate__value"><span class="num" data-rate="EUR">–</span><span class="rate__bs">Bs</span></p>
-            <p class="rate__detail">Exacta <span class="num" data-rate-exact="EUR">–</span> · 1 € = <span class="num" data-rate-cross>–</span> $</p>
+            <p class="rate__detail">Exacta <span class="num" data-rate-exact="EUR">–</span> · 1 € = <span class="num" data-rate-cross>–</span> $ · <span class="copy-inline">Tocar para copiar</span></p>
           </article>
         </div>
 
@@ -82,11 +100,82 @@
           <div class="quick__preview" id="quick-preview" aria-live="polite"></div>
         </form>
 
+        <!-- Custom rate / comparator -->
+        <details class="card-fold" id="custom-rate-card">
+          <summary class="card-fold__sum">
+            <span>Tasa personalizada / Comparador</span>
+            <span class="badge" id="custom-status-badge" data-active="false">BCV Oficial</span>
+          </summary>
+          <div class="card-fold__body">
+            <label class="switch-row">
+              <span>Activar tasa personalizada</span>
+              <input type="checkbox" id="custom-enabled">
+            </label>
+
+            <div class="seg" role="radiogroup" aria-label="Modo de tasa personalizada">
+              <button type="button" class="seg__opt" role="radio" data-custom-mode="manual" aria-checked="true">Tasa manual</button>
+              <button type="button" class="seg__opt" role="radio" data-custom-mode="margin" aria-checked="false">Margen % BCV</button>
+            </div>
+
+            <div class="custom-fields" id="custom-manual-fields">
+              <div class="field-grid">
+                <label class="field">
+                  <span>1 USD en Bs</span>
+                  <input type="text" inputmode="decimal" class="field__input num" id="custom-usd" placeholder="Ej: 950,00">
+                </label>
+                <label class="field">
+                  <span>1 EUR en Bs (opcional)</span>
+                  <input type="text" inputmode="decimal" class="field__input num" id="custom-eur" placeholder="Auto">
+                </label>
+              </div>
+              <label class="field">
+                <span>Etiqueta (opcional)</span>
+                <input type="text" maxlength="24" class="field__input" id="custom-label" placeholder="Ej: Tasa tienda / Paralelo">
+              </label>
+            </div>
+
+            <div class="custom-fields" id="custom-margin-fields" hidden>
+              <label class="field">
+                <span>Margen sobre BCV (%)</span>
+                <input type="number" step="0.5" class="field__input num" id="custom-margin" value="5">
+              </label>
+              <div class="preset-row">
+                <button type="button" class="pill-btn pill-btn--sm" data-margin-preset="3">+3%</button>
+                <button type="button" class="pill-btn pill-btn--sm" data-margin-preset="5">+5%</button>
+                <button type="button" class="pill-btn pill-btn--sm" data-margin-preset="10">+10%</button>
+                <button type="button" class="pill-btn pill-btn--sm" data-margin-preset="15">+15%</button>
+                <button type="button" class="pill-btn pill-btn--sm" data-margin-preset="-5">−5%</button>
+              </div>
+            </div>
+
+            <p class="card-fold__note" id="custom-compare"></p>
+          </div>
+        </details>
+
+        <!-- Local rate history -->
+        <details class="card-fold" id="history-card">
+          <summary class="card-fold__sum">
+            <span>Historial de tasas BCV</span>
+            <span class="badge" id="history-count"></span>
+          </summary>
+          <div class="card-fold__body">
+            <div class="history__spark" id="history-spark" hidden></div>
+            <ul class="history__list" id="history-list"></ul>
+          </div>
+        </details>
+
         <div class="rates-meta">
-          <span>Fecha valor <strong id="value-date">–</strong></span>
-          <span>Actualizado <strong id="fetched-at">–</strong></span>
-          <span class="rates-meta__auto">Se actualiza automáticamente</span>
-        </div>      </section>
+          <div class="rates-meta__info">
+            <span>Fecha valor <strong id="value-date">–</strong></span>
+            <span>Actualizado <strong id="fetched-at">–</strong></span>
+            <span class="rates-meta__auto">Se actualiza automáticamente</span>
+          </div>
+          <button class="pill-btn rates-meta__refresh" type="button" id="refresh-rates" aria-label="Actualizar tasas ahora">
+            <svg class="btn__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Actualizar</span>
+          </button>
+        </div>
+      </section>
 
       <!-- Calculator -->
       <section class="view view--calc" id="view-calc" aria-labelledby="nav-calc" data-view="calc" hidden>
@@ -104,6 +193,7 @@
             <p class="money__label">Escribiendo en <strong id="from-name">Dólares</strong></p>
             <div class="seg seg--lg seg--cur" role="radiogroup" aria-label="Moneda que tengo" data-side="from"></div>
             <p class="money__value"><span class="num" id="amount-display">0</span><span class="money__code" id="from-code">USD</span></p>
+            <p class="money__expr num" id="expr-eval" hidden></p>
           </div>
 
           <button class="swap" type="button" id="swap" aria-label="Invertir: usar el resultado como nuevo monto">
@@ -113,7 +203,11 @@
           <div class="money money--result" id="money-to">
             <p class="money__label">Equivale en <strong id="to-name">Bolívares</strong></p>
             <div class="seg seg--lg seg--cur" role="radiogroup" aria-label="Moneda que quiero" data-side="to"></div>
-            <p class="money__value"><span class="num" id="result-display">0,00</span><span class="money__code" id="to-code">Bs</span></p>
+            <button class="money__value money__copy-btn" type="button" id="copy-result" aria-label="Copiar resultado para Pago Móvil" title="Tocar para copiar monto">
+              <span class="num" id="result-display">0,00</span>
+              <span class="money__code" id="to-code">Bs</span>
+              <svg class="money__copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
             <p class="money__hint" id="third-display"></p>
           </div>
         </div>
@@ -131,22 +225,61 @@
           </button>
         </div>
 
-        <div class="keypad" id="keypad" role="group" aria-label="Teclado numérico">
+        <div class="calc-ops" id="calc-ops" role="group" aria-label="Porcentajes e igual">
+          <button type="button" class="op-chip" data-pct="+16%">+16% IVA</button>
+          <button type="button" class="op-chip" data-pct="+3%">+3% IGTF</button>
+          <button type="button" class="op-chip" data-pct="-10%">−10%</button>
+          <button type="button" class="op-chip" data-key="%">%</button>
+          <button type="button" class="op-chip op-chip--eq" data-key="=" aria-label="Calcular resultado">=</button>
+        </div>
+
+        <div class="keypad keypad--ops" id="keypad" role="group" aria-label="Teclado numérico y operadores">
           <button type="button" class="key" data-key="1">1</button>
           <button type="button" class="key" data-key="2">2</button>
           <button type="button" class="key" data-key="3">3</button>
+          <button type="button" class="key key--op" data-key="÷" aria-label="Dividir">÷</button>
           <button type="button" class="key" data-key="4">4</button>
           <button type="button" class="key" data-key="5">5</button>
           <button type="button" class="key" data-key="6">6</button>
+          <button type="button" class="key key--op" data-key="×" aria-label="Multiplicar">×</button>
           <button type="button" class="key" data-key="7">7</button>
           <button type="button" class="key" data-key="8">8</button>
           <button type="button" class="key" data-key="9">9</button>
+          <button type="button" class="key key--op" data-key="-" aria-label="Restar">−</button>
           <button type="button" class="key key--alt" data-key="," aria-label="Coma decimal">,</button>
           <button type="button" class="key" data-key="0">0</button>
           <button type="button" class="key key--alt" data-key="back" aria-label="Borrar último dígito. Mantener para borrar todo">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 5H9l-6 7 6 7h12zM17.5 9.5l-5 5M12.5 9.5l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
           </button>
+          <button type="button" class="key key--op" data-key="+" aria-label="Sumar">+</button>
         </div>
+      </section>
+
+      <!-- Change & mixed payments -->
+      <section class="view view--change" id="view-change" aria-labelledby="nav-change" data-view="change" hidden>
+        <div class="change-head">
+          <h2 class="change-head__title">Vuelto y pago mixto</h2>
+          <button class="pill-btn" type="button" id="change-clear">Limpiar</button>
+        </div>
+
+        <div class="change-card">
+          <div class="change-card__top">
+            <label class="quick__label" for="change-due">Monto a cobrar</label>
+            <button class="pill-btn pill-btn--sm pill-btn--accent" type="button" id="change-use-total">Usar total</button>
+          </div>
+          <input class="quick__input num" id="change-due" type="text" inputmode="decimal" placeholder="0,00" maxlength="18" data-cur="USD">
+          <div class="seg seg--cur" role="radiogroup" aria-label="Moneda a cobrar" id="change-due-cur"></div>
+        </div>
+
+        <div class="change-card">
+          <div class="change-card__top">
+            <span class="quick__label">Pagos recibidos</span>
+            <button class="pill-btn pill-btn--sm" type="button" id="change-add-pay">+ Agregar pago</button>
+          </div>
+          <div class="pay-list" id="change-payments"></div>
+        </div>
+
+        <div class="change-res" id="change-result" aria-live="polite"></div>
       </section>
     </main>
 
@@ -159,15 +292,22 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 7h6M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         <span>Calculadora</span>
       </button>
+      <button type="button" class="bottomnav__item" id="nav-change" data-target="change">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 12h.01M18 12h.01" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <span>Vuelto</span>
+      </button>
     </nav>
 
     <!-- Side panel: every calculation plus the running total -->
     <aside class="panel" id="panel" aria-labelledby="panel-title">
       <div class="panel__head">
         <h2 class="panel__title" id="panel-title">Mis cálculos</h2>
-        <button class="icon-btn panel__close" type="button" id="close-panel" aria-label="Cerrar panel">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-        </button>
+        <div class="panel__head-actions">
+          <button class="pill-btn pill-btn--sm" type="button" id="panel-profile-btn">Pago Móvil</button>
+          <button class="icon-btn panel__close" type="button" id="close-panel" aria-label="Cerrar panel">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+          </button>
+        </div>
       </div>
 
       <div class="panel__body">
@@ -185,7 +325,9 @@
         </div>
         <div class="grand">
           <span class="grand__label">Total</span>
-          <span class="grand__value"><span class="num" id="grand-total">0,00</span> <span class="grand__code" id="grand-code">Bs</span></span>
+          <button type="button" class="grand__value grand__copy" id="copy-grand-total" title="Tocar para copiar total">
+            <span class="num" id="grand-total">0,00</span> <span class="grand__code" id="grand-code">Bs</span>
+          </button>
         </div>
         <p class="total__rates" id="total-rates"></p>
         <div class="share__main">
@@ -221,7 +363,80 @@
     </form>
   </dialog>
 
+  <dialog class="profile-dialog" id="profile-dialog" aria-labelledby="profile-title">
+    <form class="profile-form" id="profile-form">
+      <div class="profile-form__head">
+        <h2 class="confirm__title" id="profile-title">Pago Móvil y Recibo</h2>
+        <button class="icon-btn" type="button" id="profile-close" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <label class="field">
+        <span>Nombre del negocio / encabezado del recibo</span>
+        <input type="text" maxlength="40" class="field__input" id="prof-business" placeholder="Ej: Bodegón Central (opcional)">
+      </label>
+
+      <label class="field">
+        <span>Nota fija en el recibo</span>
+        <input type="text" maxlength="80" class="field__input" id="prof-note" placeholder="Ej: Gracias por su compra">
+      </label>
+
+      <hr class="dialog-sep">
+
+      <label class="switch-row">
+        <span>Incluir Pago Móvil en WhatsApp y recibo</span>
+        <input type="checkbox" id="pm-enabled">
+      </label>
+
+      <label class="field">
+        <span>Banco</span>
+        <input type="text" maxlength="40" class="field__input" id="pm-bank" placeholder="Ej: Banesco (0134) / BDV (0102)">
+      </label>
+
+      <div class="field-grid">
+        <label class="field">
+          <span>Cédula / RIF</span>
+          <input type="text" maxlength="20" class="field__input" id="pm-id" placeholder="V-12345678">
+        </label>
+        <label class="field">
+          <span>Teléfono</span>
+          <input type="tel" maxlength="20" class="field__input" id="pm-phone" placeholder="0414-1234567">
+        </label>
+      </div>
+
+      <div class="profile-form__actions">
+        <button class="btn btn--ghost" type="button" id="pm-copy-only">Copiar Pago Móvil</button>
+        <button class="btn btn--primary" type="submit">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog class="receipt-dialog" id="receipt-dialog" aria-labelledby="receipt-title">
+    <details class="receipt__edit">
+      <summary class="receipt__edit-sum">Personalizar recibo (comercio, cliente, nota)</summary>
+      <div class="receipt__edit-body">
+        <div class="field-grid">
+          <label class="field">
+            <span>Comercio / Título</span>
+            <input type="text" maxlength="40" class="field__input" id="rec-business" placeholder="Recibo de cálculo">
+          </label>
+          <label class="field">
+            <span>Cliente</span>
+            <input type="text" maxlength="40" class="field__input" id="rec-client" placeholder="Opcional">
+          </label>
+        </div>
+        <label class="field">
+          <span>Nota</span>
+          <input type="text" maxlength="80" class="field__input" id="rec-note" placeholder="Opcional">
+        </label>
+        <label class="switch-row">
+          <span>Mostrar datos de Pago Móvil</span>
+          <input type="checkbox" id="rec-include-pm">
+        </label>
+      </div>
+    </details>
+
     <article class="receipt" id="receipt">
       <header class="receipt__head">
         <svg class="receipt__mark" viewBox="0 0 48 48" aria-hidden="true">
@@ -232,6 +447,7 @@
         <div>
           <h2 class="receipt__title" id="receipt-title">Recibo de cálculo</h2>
           <p class="receipt__meta" id="receipt-meta"></p>
+          <p class="receipt__client" id="receipt-client" hidden></p>
         </div>
       </header>
       <table class="receipt__table">
@@ -239,6 +455,8 @@
         <tbody id="receipt-lines"></tbody>
       </table>
       <div class="receipt__total"><span>Total</span><strong class="num" id="receipt-total"></strong></div>
+      <div class="receipt__pm" id="receipt-pm" hidden></div>
+      <p class="receipt__custom-note" id="receipt-custom-note" hidden></p>
       <p class="receipt__rates" id="receipt-rates"></p>
       <p class="receipt__note">Documento informativo. No sustituye una factura fiscal.</p>
     </article>

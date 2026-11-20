@@ -3,6 +3,7 @@ import { formatAmount, formatInput, code } from './format.js';
 import { getRates, onRatesChange } from './rates-api.js';
 import { load, save } from './storage.js';
 import { buildSegment, markSegment, startCalculation } from './calculator-view.js';
+import { copyText, formatBankCopy } from './clipboard.js';
 import { toast } from './toast.js';
 
 const form = document.querySelector('#quick-form');
@@ -133,23 +134,42 @@ function setupChips() {
   }).observe(track);
 }
 
-/** Live equivalents in the other two currencies while typing. */
+/** Live equivalents in the other two currencies while typing. Tapping copies for Pago Móvil. */
 function renderPreview() {
   clearBtn.hidden = !input.value;
   const rates = getRates();
   const amount = parseInput(normalizeTypedAmount(input.value));
   const others = CURRENCIES.filter((c) => c !== currency);
   preview.replaceChildren(...others.map((cur) => {
-    const item = document.createElement('div');
-    item.className = 'quick__eq';
+    const converted = rates ? convert(amount, currency, cur, rates) : null;
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'quick__eq copyable';
     item.dataset.cur = cur;
+    item.setAttribute('aria-label', converted != null
+      ? `Copiar ${formatAmount(converted)} ${CURRENCY_META[cur].name}`
+      : CURRENCY_META[cur].name);
+
+    const head = document.createElement('span');
+    head.className = 'quick__eq-head';
     const label = document.createElement('span');
     label.className = 'quick__eq-label';
     label.textContent = CURRENCY_META[cur].name;
+    const copyHint = document.createElement('span');
+    copyHint.className = 'copy-tag';
+    copyHint.textContent = 'Copiar';
+    head.append(label, copyHint);
+
     const value = document.createElement('span');
     value.className = 'quick__eq-value num';
-    value.textContent = rates ? `${formatAmount(convert(amount, currency, cur, rates))} ${code(cur)}` : '–';
-    item.append(label, value);
+    value.textContent = converted != null ? `${formatAmount(converted)} ${code(cur)}` : '–';
+    item.append(head, value);
+
+    item.addEventListener('click', () => {
+      if (converted == null || amount <= 0) return;
+      const plain = formatBankCopy(converted);
+      copyText(plain, `Copiado: ${plain} ${code(cur)}`);
+    });
     return item;
   }));
 }

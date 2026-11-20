@@ -1,12 +1,15 @@
+import { initTheme } from './theme.js';
 import { initRatesView } from './rates-view.js';
 import { initCalculatorView } from './calculator-view.js';
 import { initPanelView, openPanel } from './panel-view.js';
 import { initQuickCalc } from './quick-calc.js';
+import { initChangeView } from './change-view.js';
+import { initProfileModal } from './profile-modal.js';
 import { initReceipt } from './receipt.js';
 import { initStaleCheck } from './stale-check.js';
 import { load, save } from './storage.js';
 
-const VIEWS = ['rates', 'calc'];
+const VIEWS = ['rates', 'calc', 'change'];
 const navItems = [...document.querySelectorAll('.bottomnav__item')];
 const scroller = document.querySelector('.views');
 const hashView = location.hash.slice(1);
@@ -29,12 +32,21 @@ function showView(name) {
 
 navItems.forEach((item) => item.addEventListener('click', () => showView(item.dataset.target)));
 
+initTheme();
 initRatesView();
 initCalculatorView(() => activeView === 'calc');
 initPanelView();
 initQuickCalc(() => showView('calc'));
+initChangeView();
+initProfileModal();
 initReceipt();
 showView(activeView);
 if (wantsPanel) openPanel();
 initStaleCheck();
 
+// Register Service Worker for full offline PWA support.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}

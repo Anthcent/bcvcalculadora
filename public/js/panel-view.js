@@ -1,10 +1,12 @@
 import { CURRENCIES, aggregate, convert, parseInput } from './convert.js';
 import { formatAmount, formatNumber, formatValueDate, code } from './format.js';
 import { getRates, onRatesChange } from './rates-api.js';
+import { getProfile, hasPagoMovilData, formatPagoMovilText } from './profile-store.js';
 import { load, save } from './storage.js';
 import { confirmAction } from './confirm.js';
 import * as store from './windows-store.js';
 import { buildSegment, markSegment, addCalculation } from './calculator-view.js';
+import { copyText, formatBankCopy } from './clipboard.js';
 import { toast } from './toast.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -63,17 +65,26 @@ export function closePanel() {
 
 /* ---------- Items ---------- */
 
+const copyIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 const deleteIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-async function requestDelete(win) {
-  const ok = await confirmAction({
-    title: '¿Eliminar cálculo?',
-    text: `"${win.name}" se eliminará de la lista y del total.`,
+function deleteWithUndo(win) {
+  const deleted = store.removeWindow(win.id);
+  if (!deleted) return;
+  toast(`"${win.name}" eliminado`, {
+    duration: 5000,
+    actionLabel: 'Deshacer',
+    onAction: () => {
+      store.restoreWindow(deleted);
+      toast(`"${win.name}" restaurado`);
+    },
   });
-  if (ok) store.removeWindow(win.id);
 }
 
 function renderItem(win, rates, activeId) {
+  const qty = win.qty > 1 ? win.qty : 1;
+  const subtotal = win.amount * qty;
+
   const li = document.createElement('li');
   li.className = 'item';
   li.classList.toggle('is-active', win.id === activeId);
@@ -90,9 +101,11 @@ function renderItem(win, rates, activeId) {
   open.querySelector('.item__name').textContent = win.name;
   open.querySelector('.item__from').dataset.cur = win.from;
   open.querySelector('.item__to').dataset.cur = win.to;
-  open.querySelector('.item__from').textContent = `${formatAmount(win.amount)} ${code(win.from)}`;
+  open.querySelector('.item__from').textContent = qty > 1
+    ? `${qty} × ${formatAmount(win.amount)} ${code(win.from)}`
+    : `${formatAmount(win.amount)} ${code(win.from)}`;
   open.querySelector('.item__to').textContent = rates
-    ? `${formatAmount(convert(win.amount, win.from, win.to, rates))} ${code(win.to)}`
+    ? `${formatAmount(convert(subtotal, win.from, win.to, rates))} ${code(win.to)}`
     : '–';
   open.addEventListener('click', () => {
     store.selectWindow(win.id);
@@ -111,14 +124,53 @@ function renderItem(win, rates, activeId) {
   check.addEventListener('change', () => store.updateWindow(win.id, { included: check.checked }));
   include.append(check, document.createTextNode('Sumar'));
 
+  // Quantity stepper (×1, ×2, ...)
+  const qtyBox = document.createElement('div');
+  qtyBox.className = 'item__qty';
+  const dec = document.createElement('button');
+  dec.type = 'button';
+  dec.className = 'qty-btn';
+  dec.textContent = '−';
+  dec.disabled = qty <= 1;
+  dec.setAttribute('aria-label', `Disminuir cantidad de ${win.name}`);
+  dec.addEventListener('click', () => store.updateWindow(win.id, { qty: Math.max(1, qty - 1) }));
+
+  const qtyVal = document.createElement('span');
+  qtyVal.className = 'qty-val num';
+  qtyVal.textContent = `×${qty}`;
+
+  const inc = document.createElement('button');
+  inc.type = 'button';
+  inc.className = 'qty-btn';
+  inc.textContent = '+';
+  inc.setAttribute('aria-label', `Aumentar cantidad de ${win.name}`);
+  inc.addEventListener('click', () => store.updateWindow(win.id, { qty: Math.min(999, qty + 1) }));
+  qtyBox.append(dec, qtyVal, inc);
+
+  const rightBtns = document.createElement('div');
+  rightBtns.className = 'item__btns';
+
+  const dup = document.createElement('button');
+  dup.type = 'button';
+  dup.className = 'icon-btn item__dup';
+  dup.innerHTML = copyIcon;
+  dup.title = 'Duplicar cálculo';
+  dup.setAttribute('aria-label', `Duplicar ${win.name}`);
+  dup.addEventListener('click', () => {
+    store.duplicateWindow(win.id);
+    toast(`"${win.name}" duplicado`);
+  });
+
   const del = document.createElement('button');
   del.type = 'button';
   del.className = 'icon-btn item__delete';
   del.innerHTML = deleteIcon;
+  del.title = 'Eliminar cálculo';
   del.setAttribute('aria-label', `Eliminar ${win.name}`);
-  del.addEventListener('click', () => requestDelete(win));
+  del.addEventListener('click', () => deleteWithUndo(win));
 
-  actions.append(include, del);
+  rightBtns.append(dup, del);
+  actions.append(include, qtyBox, rightBtns);
   li.append(open, actions);
   return li;
 }
@@ -151,8 +203,11 @@ function render() {
   $('#grand-code').textContent = code(outCurrency);
   $('#dock-code').textContent = code(outCurrency);
   $('#open-panel').dataset.cur = outCurrency;
+
+  const ratePrefix = rates.isCustom ? `${rates.customLabel || 'Personalizada'}: ` : '';
+  const datePart = rates.valueDate ? ` · ${formatValueDate(rates.valueDate)}` : '';
   $('#total-rates').textContent =
-    `1 USD = ${formatNumber(rates.usd, 2)} Bs · 1 EUR = ${formatNumber(rates.eur, 2)} Bs · ${formatValueDate(rates.valueDate)}`;
+    `${ratePrefix}1 USD = ${formatNumber(rates.usd, 2)} Bs · 1 EUR = ${formatNumber(rates.eur, 2)} Bs${datePart}`;
 }
 
 /* ---------- Share ---------- */
@@ -169,15 +224,32 @@ export function buildShareText() {
   if (!rates) return null;
   const { lines, total } = aggregate(windowsWithAmounts(), outCurrency, rates);
   const out = code(outCurrency);
-  return [
-    '*Resumen de cálculos*',
-    ...lines.map((l) => `• ${l.name}: ${formatAmount(l.amount)} ${code(l.from)} → ${formatAmount(l.result)} ${code(l.to)}`),
+  const profile = getProfile();
+
+  const title = profile.businessName ? `*${profile.businessName} — Resumen*` : '*Resumen de cálculos*';
+  const rateTitle = rates.isCustom ? (rates.customLabel || 'Tasa personalizada') : 'Tasa BCV';
+
+  const parts = [
+    title,
+    ...lines.map((l) => {
+      const qtyPart = l.qty > 1 ? `${l.qty} × ` : '';
+      return `• ${l.name}: ${qtyPart}${formatAmount(l.amount)} ${code(l.from)} → ${formatAmount(l.result)} ${code(l.to)}`;
+    }),
     '',
     `*Total: ${formatAmount(total)} ${out}*`,
     '',
-    `Tasa BCV: 1 USD = ${formatNumber(rates.usd, 2)} Bs | 1 EUR = ${formatNumber(rates.eur, 2)} Bs`,
-    `Fecha valor BCV: ${formatValueDate(rates.valueDate)}`,
-  ].join('\n');
+    `${rateTitle}: 1 USD = ${formatNumber(rates.usd, 2)} Bs | 1 EUR = ${formatNumber(rates.eur, 2)} Bs`,
+  ];
+
+  if (rates.valueDate && !rates.isCustom) {
+    parts.push(`Fecha valor BCV: ${formatValueDate(rates.valueDate)}`);
+  }
+
+  if (profile.pagoMovil.enabled && hasPagoMovilData(profile)) {
+    parts.push('', formatPagoMovilText(profile));
+  }
+
+  return parts.join('\n');
 }
 
 function getTextOrWarn() {
@@ -186,30 +258,10 @@ function getTextOrWarn() {
   return text;
 }
 
-function legacyCopy(text) {
-  const area = document.createElement('textarea');
-  area.value = text;
-  area.setAttribute('readonly', '');
-  area.style.position = 'fixed';
-  area.style.opacity = '0';
-  document.body.append(area);
-  area.select();
-  const ok = document.execCommand('copy');
-  area.remove();
-  return ok;
-}
-
-async function copyText() {
+async function copySummaryText() {
   const text = getTextOrWarn();
   if (!text) return;
-  try {
-    // The Clipboard API only exists in secure contexts (not on http://<LAN-IP>).
-    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
-    else if (!legacyCopy(text)) throw new Error('copy failed');
-    toast('Texto copiado');
-  } catch {
-    toast('No se pudo copiar el texto.', { tone: 'error' });
-  }
+  await copyText(text, 'Texto copiado');
 }
 
 function shareWhatsApp() {
@@ -234,8 +286,15 @@ async function clearAll() {
     confirmLabel: 'Confirmar',
   });
   if (!ok) return;
-  store.clearAll();
-  toast('Cálculos borrados');
+  const snapshot = store.clearAll();
+  toast('Cálculos borrados', {
+    duration: 5000,
+    actionLabel: 'Deshacer',
+    onAction: () => {
+      store.restoreSnapshot(snapshot);
+      toast('Cálculos restaurados');
+    },
+  });
 }
 
 /* ---------- Init ---------- */
@@ -258,10 +317,18 @@ export function initPanelView() {
     addCalculation();
     closePanel();
   });
+
+  $('#copy-grand-total')?.addEventListener('click', () => {
+    const summary = getSummary();
+    if (!summary || summary.total <= 0) return;
+    const plain = formatBankCopy(summary.total);
+    copyText(plain, `Total copiado: ${plain} ${code(summary.currency)}`);
+  });
+
   if (typeof navigator.share === 'function') $('#share-native').hidden = false;
   $('#share-whatsapp').addEventListener('click', shareWhatsApp);
   $('#share-native').addEventListener('click', shareNative);
-  $('#share-copy').addEventListener('click', copyText);
+  $('#share-copy').addEventListener('click', copySummaryText);
   $('#clear-all').addEventListener('click', clearAll);
   $('#empty-all').addEventListener('click', clearAll);
 
