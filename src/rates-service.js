@@ -1,17 +1,34 @@
 import https from 'node:https';
 import tls from 'node:tls';
 import { parseBcvHtml } from './bcv-parser.js';
-import { SECTIGO_DV_R36 } from './bcv-ca.js';
+import { BCV_INTERMEDIATES } from './bcv-ca.js';
+import { getDb } from './db.js';
 
 const BCV_URL = 'https://www.bcv.org.ve/';
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 15_000;
 // After a failure, wait this long before hitting BCV again (forced refreshes bypass it).
 const RETRY_COOLDOWN_MS = 30_000;
-// Mozilla roots plus the intermediate BCV forgets to send. Verification stays fully on.
-const BCV_CA = [...tls.rootCertificates, SECTIGO_DV_R36];
+// Mozilla roots plus the intermediates BCV omits (DV R36 and OV R36). Verification stays fully on.
+const BCV_CA = [...tls.rootCertificates, ...BCV_INTERMEDIATES];
 
-let cache = null; // { usd, eur, valueDate, fetchedAt }
+function loadLatestFromDb() {
+  try {
+    return getDb().getLatestBcvRate();
+  } catch {
+    return null;
+  }
+}
+
+function saveToDb(entry) {
+  try {
+    getDb().upsertBcvRate(entry);
+  } catch (err) {
+    console.error('[rates] could not persist rate to SQLite:', err.message);
+  }
+}
+
+let cache = loadLatestFromDb(); // { usd, eur, valueDate, fetchedAt }
 let inflight = null;
 let lastFailureAt = 0;
 let consecutiveFailures = 0;
@@ -64,7 +81,8 @@ function logFailure(err) {
 
 /**
  * Returns rates from cache when fresh, otherwise refetches.
- * On failure, falls back to the last cached value flagged as stale.
+ * Persists every successful BCV fetch into SQLite (`bcv_rates`).
+ * On failure, falls back to the last cached/SQLite value flagged as stale.
  * Throws only when there is nothing cached.
  */
 export async function getRates({ refresh = false } = {}) {
@@ -78,6 +96,7 @@ export async function getRates({ refresh = false } = {}) {
     // Share one in-flight request between concurrent callers.
     inflight ??= fetchFromBcv().finally(() => { inflight = null; });
     cache = await inflight;
+    saveToDb(cache);
     consecutiveFailures = 0;
     lastFailureAt = 0;
     return { ...cache, source: 'bcv.org.ve', stale: false };
